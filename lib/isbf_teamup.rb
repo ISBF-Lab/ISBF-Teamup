@@ -37,7 +37,8 @@ module IsbfTeamup
   end
 
   def self.show_on_home?(topic)
-    !topic.custom_fields.key?(HOME_FIELD) || topic.custom_fields[HOME_FIELD] == true
+    value = topic.custom_fields[HOME_FIELD]
+    value.nil? || value == true
   end
 
   def self.anonymous_identity?(user)

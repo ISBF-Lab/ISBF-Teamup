@@ -9,6 +9,7 @@ module IsbfTeamup
   class TopicsController < ::ApplicationController
     requires_login
     requires_plugin "isbf-teamup"
+    skip_before_action :check_xhr, only: :page
 
     def page
       category = Category.find_by(id: IsbfTeamup.category_id)

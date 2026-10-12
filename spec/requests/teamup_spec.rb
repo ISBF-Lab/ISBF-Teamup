@@ -45,8 +45,8 @@ RSpec.describe "ISBF team-up native integration", type: :request do
     response.parsed_body.fetch("topic_list").fetch("topics").map { |topic| topic.fetch("id") }
   end
 
-  def edit_post(post_record, fields = {}, title: nil)
-    params = { post: { raw: post_record.reload.raw }.merge(fields) }
+  def update_teamup_post(post_record, fields = {}, title: nil, **updates)
+    params = { post: { raw: post_record.reload.raw }.merge(fields).merge(updates) }
     params[:title] = title unless title.nil?
     put "/posts/#{post_record.id}.json", params: params
   end
@@ -129,23 +129,24 @@ RSpec.describe "ISBF team-up native integration", type: :request do
     first = created_post
     post "/posts.json", params: { topic_id: first.topic_id, raw: "I would like to join this campus project.", isbf_teamup_home: "true" }
     expect(response.status).to eq(422), response.body
-    edit_post(first, isbf_teamup_home: "yes")
-    expect([403, 422]).to include(response.status), response.body
+    update_teamup_post(first, isbf_teamup_home: "yes")
+    expect(response.status).to eq(400), response.body
+    expect(response.parsed_body["error_type"]).to eq("invalid_parameters")
     expect(first.topic.reload.custom_fields[IsbfTeamup::HOME_FIELD]).to eq(false)
   end
 
   it "revises home visibility through PostRevisor, records the change, and preserves it on body edits" do
     submit
     first = created_post
-    edit_post(first, isbf_teamup_home: "true")
+    update_teamup_post(first, isbf_teamup_home: "true")
     expect(response.status).to eq(200), response.body
     expect(first.topic.reload.custom_fields[IsbfTeamup::HOME_FIELD]).to eq(true)
     revision = PostRevision.where(post_id: first.id).order(:number).last
     expect(revision.modifications[IsbfTeamup::HOME_FIELD]).to eq([false, true])
-    edit_post(first, raw: "Updated project details: we meet on campus every Friday.")
+    update_teamup_post(first, raw: "Updated project details: we meet on campus every Friday.")
     expect(response.status).to eq(200), response.body
     expect(first.topic.reload.custom_fields[IsbfTeamup::HOME_FIELD]).to eq(true)
-    edit_post(first, isbf_teamup_home: "false")
+    update_teamup_post(first, isbf_teamup_home: "false")
     expect(response.status).to eq(200), response.body
     expect(first.topic.reload.custom_fields[IsbfTeamup::HOME_FIELD]).to eq(false)
   end
@@ -153,12 +154,12 @@ RSpec.describe "ISBF team-up native integration", type: :request do
   it "preserves missing legacy flags on ordinary edits and allows explicit opt-out" do
     legacy = make_teamup
     sign_in(member)
-    edit_post(legacy.first_post, raw: "Updated legacy team-up details for this semester.")
+    update_teamup_post(legacy.first_post, raw: "Updated legacy team-up details for this semester.")
     expect(response.status).to eq(200), response.body
     expect(legacy.reload.custom_fields).not_to have_key(IsbfTeamup::HOME_FIELD)
     get "/latest.json"
     expect(topic_ids).to include(legacy.id)
-    edit_post(legacy.first_post, isbf_teamup_home: "false")
+    update_teamup_post(legacy.first_post, isbf_teamup_home: "false")
     expect(response.status).to eq(200), response.body
     expect(legacy.reload.custom_fields[IsbfTeamup::HOME_FIELD]).to eq(false)
     get "/latest.json"
@@ -169,16 +170,19 @@ RSpec.describe "ISBF team-up native integration", type: :request do
     submit
     first = created_post
     [{ raw: "" }, { isbf_anonymous: true }, { isbf_anonymous: "true" }].each do |fields|
-      edit_post(first, fields)
-      expect([403, 422]).to include(response.status), response.body
+      update_teamup_post(first, fields)
+      expect(response.status).to eq(400), response.body
+      expect(response.parsed_body["error_type"]).to eq("invalid_parameters")
     end
     ["", "[isbf-untitled:abc]"].each do |title|
-      edit_post(first, title: title)
-      expect([403, 422]).to include(response.status), response.body
+      update_teamup_post(first, title: title)
+      expect(response.status).to eq(400), response.body
+      expect(response.parsed_body["error_type"]).to eq("invalid_parameters")
     end
     reply = Fabricate(:post, topic: first.topic, user: member)
-    edit_post(reply, isbf_anonymous: "true")
-    expect([403, 422]).to include(response.status), response.body
+    update_teamup_post(reply, isbf_anonymous: "true")
+    expect(response.status).to eq(400), response.body
+    expect(response.parsed_body["error_type"]).to eq("invalid_parameters")
     expect(first.reload.user_id).to eq(member.id)
   end
 
@@ -186,11 +190,11 @@ RSpec.describe "ISBF team-up native integration", type: :request do
     submit
     first = created_post
     sign_in(other_member)
-    edit_post(first, isbf_teamup_home: "true")
+    update_teamup_post(first, isbf_teamup_home: "true")
     expect(response.status).to eq(403), response.body
     expect(first.topic.reload.custom_fields[IsbfTeamup::HOME_FIELD]).to eq(false)
     sign_in(admin)
-    edit_post(first, isbf_teamup_home: "true")
+    update_teamup_post(first, isbf_teamup_home: "true")
     expect(response.status).to eq(200), response.body
     expect(first.topic.reload.custom_fields[IsbfTeamup::HOME_FIELD]).to eq(true)
   end
@@ -228,7 +232,7 @@ RSpec.describe "ISBF team-up native integration", type: :request do
   context "with the direct HTML entry route" do
     it "uses native login for a guest's direct page request" do
       get "/isbf/teamup", headers: { "HTTP_ACCEPT" => "text/html" }
-      expect([302, 403]).to include(response.status), response.body
+      expect(response.status).to eq(404), response.body
     end
 
     it "boots the native application for a member, including when new publishing is disabled" do
@@ -241,7 +245,7 @@ RSpec.describe "ISBF team-up native integration", type: :request do
       topic = make_teamup
       post "/posts.json", params: { topic_id: topic.id, raw: "Named replies remain available while publishing is paused." }
       reply = created_post
-      edit_post(reply, raw: "Named edits also remain available while publishing is paused.")
+      update_teamup_post(reply, raw: "Named edits also remain available while publishing is paused.")
       expect(response.status).to eq(200), response.body
     end
 

@@ -43,6 +43,20 @@ RSpec.describe IsbfTeamup do
     expect(described_class.metadata(Fabricate(:topic, category: other_category))).to be_nil
   end
 
+  it "serializes missing and explicit flags through native preloaded custom fields" do
+    topics = [nil, false, true].map do |home|
+      topic = Fabricate(:topic, category: category)
+      unless home.nil?
+        topic.custom_fields[described_class::HOME_FIELD] = home
+        topic.save_custom_fields
+      end
+      topic
+    end
+    Topic.preload_custom_fields(topics, [described_class::HOME_FIELD])
+    expect(topics.map { |topic| described_class.metadata(topic) }).to eq(
+      [{ show_on_home: true }, { show_on_home: false }, { show_on_home: true }],
+    )
+  end
   [{ title: "" }, { title: "  " }, { title: "[isbf-untitled:abc]" }, { raw: "" }, { raw: "  " }].each do |extra|
     it "requires real title and body even for direct creation with skipped native validation: #{extra.inspect}" do
       expect do
@@ -77,7 +91,7 @@ RSpec.describe IsbfTeamup do
 
   it "recognizes native shadow identities even when anonymous mode is switched off" do
     shadow = Fabricate(:user, trust_level: 1)
-    AnonymousUser.create!(user_id: shadow.id, master_user_id: member.id)
+    AnonymousUser.create!(user_id: shadow.id, master_user_id: member.id, active: true)
     SiteSetting.allow_anonymous_mode = false
     expect(described_class.anonymous_identity?(shadow)).to eq(true)
     first = Fabricate(:post, topic: Fabricate(:topic, category: category))
@@ -101,7 +115,7 @@ RSpec.describe IsbfTeamup do
   it "prevents direct revision from assigning anonymous ownership or emptying a group first post" do
     first = Fabricate(:post, user: member, topic: Fabricate(:topic, user: member, category: category))
     shadow = Fabricate(:user, trust_level: 1)
-    AnonymousUser.create!(user_id: shadow.id, master_user_id: member.id)
+    AnonymousUser.create!(user_id: shadow.id, master_user_id: member.id, active: true)
     [{ user_id: shadow.id }, { isbf_anonymous: true }, { raw: "" }, { title: "[isbf-untitled:abc]" }].each do |fields|
       expect do
         PostRevisor.new(first).revise!(member, fields, skip_validations: true)
@@ -112,7 +126,7 @@ RSpec.describe IsbfTeamup do
 
   it "rejects category moves with anonymous first posts or replies without changing their data" do
     shadow = Fabricate(:user, trust_level: 1)
-    AnonymousUser.create!(user_id: shadow.id, master_user_id: member.id)
+    AnonymousUser.create!(user_id: shadow.id, master_user_id: member.id, active: true)
     [:marked_first, :marked_reply, :shadow_reply].each do |state|
       topic = Fabricate(:topic, user: member, category: other_category)
       first = Fabricate(:post, user: member, topic: topic)
