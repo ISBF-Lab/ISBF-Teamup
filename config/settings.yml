@@ -1,0 +1,10 @@
+plugins:
+  isbf_teamup_enabled:
+    default: true
+    client: true
+  isbf_teamup_publishing_enabled:
+    default: true
+  isbf_teamup_category_id:
+    default: 0
+    type: integer
+    validator: IsbfTeamupCategoryIdValidator
