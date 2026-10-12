@@ -369,6 +369,15 @@ RSpec.describe "ISBF team-up native integration", type: :request do
       expect(topic_ids & excluded).to be_empty
     end
 
+    it "does not show the native category description as a team-up post" do
+      visible = make_teamup
+      description = Fabricate(:post, topic: Fabricate(:topic, category: category), user: Discourse.system_user)
+      category.update!(topic_id: description.topic_id)
+      SiteSetting.show_category_definitions_in_topic_lists = true
+      get "/filter.json", params: { q: "isbf-teamup:all order:created" }
+      expect(topic_ids).to eq([visible.id])
+    end
+
     it "respects native category access and requires login for the workbench filter" do
       topic = make_teamup
       category.set_permissions(staff: :full)

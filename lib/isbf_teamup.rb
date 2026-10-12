@@ -139,7 +139,7 @@ module IsbfTeamup
     category = Category.find_by(id: category_id)
     return topics.none unless category && guardian.can_see_category?(category)
 
-    topics.where(category_id: category_id, visible: true, deleted_at: nil).where(<<~SQL)
+    topics.where(category_id: category_id, visible: true, deleted_at: nil).where.not(id: category.topic_id).where(<<~SQL)
       EXISTS (SELECT 1 FROM posts AS teamup_post
         WHERE teamup_post.topic_id = topics.id AND teamup_post.post_number = 1
           AND teamup_post.deleted_at IS NULL AND NOT teamup_post.user_deleted
