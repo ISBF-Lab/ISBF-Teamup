@@ -32,4 +32,4 @@ Local Ruby syntax: `ruby -c plugin.rb` and each Ruby file under `lib/` and `spec
 
 Use a reviewed, merged GitHub commit. Main deployment tooling prepares `/shared/isbf-teamup-releases/<commit>/isbf-teamup` inside the existing container; `deploy/install-plugin.sh <commit>` selects it by symlink at `/var/www/discourse/plugins/isbf-teamup`. The script refuses to overwrite a normal plugin directory. Restart/rebuild and site configuration are handled by the coordinator's approved release workflow.
 
-Rollback selects the previously recorded release and configuration; this plugin has no schema or upload storage to migrate.
+For the initial feature rollback, set `isbf_teamup_publishing_enabled` to false and restore the previous theme with the Teamup visibility safeguards retained (`lib/teamup.js` and the updated recent-discussions code). Keep this plugin enabled, preserve its category setting and all existing home flags, and retain its native list filters. Existing topics, replies, uploads and metadata remain available, and home opt-outs continue to be excluded. This plugin has no schema or upload storage to migrate.

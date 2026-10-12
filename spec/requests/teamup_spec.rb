@@ -391,7 +391,11 @@ RSpec.describe "ISBF team-up native integration", type: :request do
       sign_in(admin)
       get "/filter.json", params: { q: "isbf-teamup:all order:created" }
       expect(topic_ids).to include(topic.id)
+      category.set_permissions(everyone: :full, staff: :full)
+      category.save!
       sign_out
+      reset!
+      expect(cookies[Auth::DefaultCurrentUserProvider::TOKEN_COOKIE].nil?).to eq(true)
       get "/filter.json", params: { q: "isbf-teamup:all order:created" }
       expect(topic_ids).to be_empty
     end

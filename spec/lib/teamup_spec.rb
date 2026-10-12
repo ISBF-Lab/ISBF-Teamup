@@ -57,6 +57,7 @@ RSpec.describe IsbfTeamup do
       [{ show_on_home: true }, { show_on_home: false }, { show_on_home: true }],
     )
   end
+
   [{ title: "" }, { title: "  " }, { title: "[isbf-untitled:abc]" }, { raw: "" }, { raw: "  " }].each do |extra|
     it "requires real title and body even for direct creation with skipped native validation: #{extra.inspect}" do
       expect do
