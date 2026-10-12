@@ -1,0 +1,9 @@
+zh_CN:
+  site_settings:
+    isbf_teamup_enabled: "启用国金组队功能。"
+    isbf_teamup_publishing_enabled: "允许在已配置的组队分类发布新主题。"
+    isbf_teamup_category_id: "现有 Discourse 组队分类的 ID；0 表示尚未配置。"
+  isbf_teamup:
+    invalid_category: "请选择真实存在的分类，且不能与二手市场或学习资料分类相同。"
+    invalid: "组队内容需要填写真实标题和正文，首页显示选项须有效，并使用非匿名账号发布。"
+    anonymous_not_allowed: "组队分类不支持匿名发布和匿名回复。"

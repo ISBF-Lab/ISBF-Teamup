@@ -1,0 +1,9 @@
+en:
+  site_settings:
+    isbf_teamup_enabled: "Enable native ISBF team-up topics."
+    isbf_teamup_publishing_enabled: "Allow new topics in the configured team-up category."
+    isbf_teamup_category_id: "ID of the existing Discourse team-up category; 0 disables integration."
+  isbf_teamup:
+    invalid_category: "Choose an existing category distinct from the marketplace and learning categories."
+    invalid: "Team-up posts require a real title and body, valid home visibility, and a named account."
+    anonymous_not_allowed: "Anonymous posting and replies are not allowed in the team-up category."
