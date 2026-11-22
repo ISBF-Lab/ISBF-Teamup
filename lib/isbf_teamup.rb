@@ -4,6 +4,10 @@ module IsbfTeamup
   HOME_FIELD = "isbf_teamup_home"
   ANONYMOUS_FIELD = "isbf_per_post_anonymous"
 
+  def self.ensure_workbench_available!
+    ::IsbfWorkbenchMaintenance.ensure_available!(:teamup) if defined?(::IsbfWorkbenchMaintenance)
+  end
+
   def self.category_id
     id = SiteSetting.isbf_teamup_category_id.to_i
     id if id.positive?
@@ -60,6 +64,11 @@ module IsbfTeamup
   end
 
   def self.validate_creation!(user, options, guardian: Guardian.new(user))
+    if home_supplied?(options) ||
+         (options[:topic_id].blank? && options[:category].to_i == category_id &&
+          options[:archetype] != Archetype.private_message)
+      ensure_workbench_available!
+    end
     return unless SiteSetting.isbf_teamup_enabled
     targeted = target?(options)
     raise Discourse::InvalidParameters.new(HOME_FIELD) if home_supplied?(options) && !targeted
@@ -99,8 +108,14 @@ module IsbfTeamup
   end
 
   def self.validate_update!(editor, post, fields)
-    return unless SiteSetting.isbf_teamup_enabled
     target_category = fields[:category_id].nil? ? post.topic.category_id : fields[:category_id].to_i
+    feature_category = category_id
+    if home_supplied?(fields) ||
+         (feature_category && post.is_first_post? && !post.topic.private_message? &&
+          [post.topic.category_id, target_category].include?(feature_category))
+      ensure_workbench_available!
+    end
+    return unless SiteSetting.isbf_teamup_enabled
     targeted = teamup?(post.topic) || (post.is_first_post? && target_category == category_id)
     if home_supplied?(fields) && (!targeted || !post.is_first_post? || target_category != category_id)
       raise Discourse::InvalidParameters.new(HOME_FIELD)
@@ -136,6 +151,7 @@ module IsbfTeamup
   end
 
   def self.filter(topics, values, guardian)
+    ensure_workbench_available!
     return topics.none unless enabled? && guardian.user && values == ["all"]
     category = Category.find_by(id: category_id)
     return topics.none unless category && guardian.can_see_category?(category)
@@ -158,6 +174,7 @@ module IsbfTeamup
 
     # Native approval skips normal validation events, so check at persistence too.
     def save_post
+      IsbfTeamup.ensure_workbench_available! if @post.is_first_post? && IsbfTeamup.teamup?(@post.topic)
       IsbfTeamup.validate_post_author!(@post)
       super
     end

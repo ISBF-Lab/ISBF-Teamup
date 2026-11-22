@@ -61,6 +61,39 @@ RSpec.describe "ISBF team-up native integration", type: :request do
     topic
   end
 
+  it "pauses only the workbench page, filter and listing writes" do
+    topic = make_teamup
+    sign_in(member)
+
+    maintenance = Module.new do
+      def self.ensure_available!(key)
+        raise Discourse::NotFound if key == :teamup
+      end
+    end
+    stub_const(Object, :IsbfWorkbenchMaintenance, maintenance) do
+      get "/isbf/teamup", headers: { "HTTP_ACCEPT" => "text/html" }
+      expect(response.status).to eq(404)
+      get "/filter.json", params: { q: "isbf-teamup:all order:created" }
+      expect(response.status).to eq(404)
+      expect { submit }.not_to change(Topic, :count)
+      expect(response.status).to eq(404)
+      update_teamup_post(topic.first_post, raw: "Updated campus opportunity details.")
+      expect(response.status).to eq(404)
+
+      get "/t/#{topic.id}.json"
+      expect(response.status).to eq(200)
+      get "/filter.json", params: { q: "category:#{category.slug}" }
+      expect(topic_ids).to include(topic.id)
+    end
+
+    get "/isbf/teamup", headers: { "HTTP_ACCEPT" => "text/html" }
+    expect(response.status).to eq(200)
+    get "/filter.json", params: { q: "isbf-teamup:all order:created" }
+    expect(topic_ids).to include(topic.id)
+    submit
+    expect(response.status).to eq(200)
+  end
+
   it "creates one native topic with a home opt-out and no forced moderation" do
     expect { submit }.to change(Topic.where(category_id: category.id), :count).by(1)
     first = created_post
