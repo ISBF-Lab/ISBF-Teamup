@@ -10,6 +10,7 @@ module IsbfTeamup
     requires_login
     requires_plugin "isbf-teamup"
     skip_before_action :check_xhr, only: :page
+    prepend_before_action { IsbfTeamup.ensure_workbench_available! }
 
     def page
       category = Category.find_by(id: IsbfTeamup.category_id)
